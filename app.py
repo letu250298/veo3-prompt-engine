@@ -1,138 +1,103 @@
-import streamlit as st
-import random
-from datetime import datetime
+import base64
+import requests
 
-st.set_page_config(page_title="TikTok Affiliate Script Generator PRO", layout="wide")
-
-st.title("🚀 TikTok Affiliate Script Generator PRO (Veo 3 Ready)")
-st.write("Tạo hàng loạt kịch bản affiliate chuẩn viral + khóa nhân vật & sản phẩm")
+OPENAI_API_KEY = "YOUR_API_KEY"
 
 # =========================
-# INPUT
+# IMAGE → BASE64
 # =========================
-
-col1, col2 = st.columns(2)
-
-with col1:
-    character_img = st.file_uploader("Upload ảnh nhân vật", type=["png","jpg","jpeg"])
-with col2:
-    product_img = st.file_uploader("Upload ảnh sản phẩm", type=["png","jpg","jpeg"])
-
-num_scripts = st.slider("Số lượng kịch bản", 1, 20, 5)
-
-duration = st.selectbox("Độ dài video", [
-    "8s","16s","24s","32s","40s","48s","56s"
-])
-
-format_option = st.selectbox("Chọn format", [
-    "Auto (AI chọn)",
-    "Review chân thật",
-    "Unbox",
-    "POV",
-    "So sánh",
-    "Story bán hàng",
-    "Bắt trend TikTok",
-    "Problem - Solution"
-])
-
-product_desc = st.text_area("Mô tả sản phẩm (key selling points)", "")
-
-generate = st.button("🔥 Generate Scripts")
+def encode_image(file):
+    return base64.b64encode(file.read()).decode("utf-8")
 
 # =========================
-# FORMAT LIBRARY (TREND 2026)
+# STEP 1: ANALYZE PRODUCT
 # =========================
+def analyze_product(image_base64):
 
-formats = [
-    "hook tò mò",
-    "review thật",
-    "mua vì tò mò",
-    "ai cũng đang dùng",
-    "so sánh trước sau",
-    "pov tình huống",
-    "bị hiểu lầm",
-    "test thử",
-    "reaction",
-    "giải quyết vấn đề"
-]
+    url = "https://api.openai.com/v1/chat/completions"
 
-# =========================
-# GENERATOR
-# =========================
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
-def generate_script(format_type, duration):
-    
-    hook_list = [
-        "Ủa… sao ai cũng xài cái này vậy?",
-        "Tui tưởng cái này vô dụng luôn á",
-        "Mua vì tò mò… ai ngờ dính luôn",
-        "Cái này mà không biết là phí luôn",
-        "Ủa cái này là cái gì vậy trời?"
-    ]
-    
-    hook = random.choice(hook_list)
-    
-    script = f"""
-MASTER LOCK:
-Mode: Image-to-Video using provided reference images only.
-Character MUST remain identical to reference image.
-Product MUST remain identical to reference product.
-NO regeneration, NO redesign.
+    prompt = """
+Bạn là chuyên gia TikTok Affiliate 10 năm kinh nghiệm.
 
-Audio:
-Vietnamese female voice, natural, miền Nam, 25 tuổi.
-Lip-sync accurate.
+Phân tích sản phẩm từ ảnh và trả về:
 
-Format:
-Vertical 9:16 TikTok
+1. Tên sản phẩm
+2. Loại sản phẩm
+3. Công dụng chính
+4. 5 điểm bán hàng (USP)
+5. Khách hàng mục tiêu
+6. Pain point khách hàng
+7. Tình huống sử dụng
+8. Format TikTok phù hợp nhất (3 format)
 
-SCENE (0–{duration}):
-
-HOOK:
-"{hook}"
-
-BODY:
-Trải nghiệm sản phẩm theo format: {format_type}
-
-CTA:
-"Ai đang cần thì nên thử cái này."
+Viết ngắn gọn, đúng insight, bán được hàng.
 """
-    
-    return script
+
+    data = {
+        "model": "gpt-4.1",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 800
+    }
+
+    res = requests.post(url, headers=headers, json=data)
+    return res.json()["choices"][0]["message"]["content"]
 
 # =========================
-# MAIN LOGIC
+# STEP 2: GENERATE SCRIPT
 # =========================
+def generate_script_with_ai(product_analysis, duration):
 
-if generate:
+    prompt = f"""
+Bạn là top TikTok creator 2026.
 
-    if not product_desc:
-        st.warning("Vui lòng nhập mô tả sản phẩm")
-    else:
-        st.success("Đang tạo kịch bản...")
+Dựa vào thông tin sản phẩm sau:
 
-        used_formats = []
-        results = []
+{product_analysis}
 
-        for i in range(num_scripts):
-            
-            if format_option == "Auto (AI chọn)":
-                available_formats = list(set(formats) - set(used_formats))
-                if not available_formats:
-                    available_formats = formats
-                chosen_format = random.choice(available_formats)
-                used_formats.append(chosen_format)
-            else:
-                chosen_format = format_option
+Hãy tạo 1 kịch bản video {duration}:
+- Hook cực mạnh 3s đầu
+- Nội dung tự nhiên, giống người thật
+- Không generic
+- Đúng pain point
+- Có CTA nhẹ
 
-            script = generate_script(chosen_format, duration)
-            results.append((i+1, chosen_format, script))
+Đảm bảo KHÔNG trùng format với các kịch bản khác.
 
-        # =========================
-        # OUTPUT
-        # =========================
+Thêm MASTER LOCK để:
+- giữ nhân vật không đổi
+- giữ sản phẩm không biến dạng
+"""
 
-        for idx, fmt, sc in results:
-            st.markdown(f"---")
-            st.subheader(f"🎬 Script {idx} - Format: {fmt}")
-            st.code(sc)
+    url = "https://api.openai.com/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "model": "gpt-4.1",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 1000
+    }
+
+    res = requests.post(url, headers=headers, json=data)
+    return res.json()["choices"][0]["message"]["content"]
