@@ -1,110 +1,148 @@
 import streamlit as st
+import random, json, os
+from datetime import datetime
+import pandas as pd
 
-st.set_page_config(page_title="VEO 3 Prompt Engine", layout="centered")
+# ================= CONFIG =================
+DATA_FILE = "data.json"
+TREND_FILE = "trends.json"
 
-st.title("🔥 VEO 3 PROMPT ENGINE (TikTok Creator Pro)")
+st.set_page_config(page_title="VEO3 MONEY SYSTEM", layout="wide")
+st.title("🔥 VEO3 MONEY SYSTEM (Trend + AB Test + Dashboard)")
 
-# ======================
-# INPUT
-# ======================
+# ================= UTIL =================
+def load_json(path, default):
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return default
 
-character = st.file_uploader("Upload nhân vật", type=["png","jpg","jpeg"])
-product = st.file_uploader("Upload sản phẩm", type=["png","jpg","jpeg"])
+def save_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-style = st.selectbox("Style", ["Review", "Cinematic", "Viral"])
-duration = st.selectbox("Duration", ["8s", "16s"])
+# ================= TREND ENGINE =================
+default_hooks = [
+    "Ủa… sao giờ ai cũng xài cái này vậy?",
+    "Lướt TikTok thấy cái này hoài luôn",
+    "Không nghĩ là nó tiện vậy luôn á",
+    "Ai cũng mua cái này luôn á trời",
+    "Review thật, không PR nha 😭"
+]
 
-generate = st.button("🚀 GENERATE PROMPT")
+def get_trend_hooks():
+    data = load_json(TREND_FILE, [])
+    return data if data else default_hooks
 
-# ======================
-# CORE ENGINE
-# ======================
+# ================= TRACKING =================
+def save_result(video_id, hook, views):
+    data = load_json(DATA_FILE, [])
+    data.append({
+        "video_id": video_id,
+        "hook": hook,
+        "views": views,
+        "date": str(datetime.now())
+    })
+    save_json(DATA_FILE, data)
 
-def build_master_lock():
-    return """MASTER LOCK:
-Mode: Image-to-Video using provided reference images only.
+def get_data():
+    return load_json(DATA_FILE, [])
 
-Character lock:
-MUST remain identical to reference image.
-Do NOT regenerate face, hair, body.
+# ================= AB TEST =================
+def generate_hooks(n=5):
+    hooks = get_trend_hooks()
+    return random.sample(hooks, min(n, len(hooks)))
 
-Product lock:
-MUST remain identical to reference product.
-Do NOT change shape, color, cable type.
+# ================= STORYBOARD =================
+def build_story(hook):
+    return [
+        ("0-3s", "Close-up face", hook),
+        ("3-6s", "Macro product", "Ủa có sẵn hết luôn hả?!"),
+        ("6-10s", "Use product", "Tiện ghê luôn á"),
+        ("10-15s", "Lifestyle", "Đi đâu cũng không cần mang dây"),
+        ("15-20s", "CTA", "Mua cái này là đúng rồi")
+    ]
 
-Continuity lock:
-Maintain same character and product across all scenes.
+# ================= PROMPT =================
+def build_prompt(story):
+    return f"""
+MASTER LOCK
+IDENTITY LOCK
+PRODUCT LOCK
+CONTINUITY LOCK
 
-Negative constraints:
-NO TEXT OVERLAY
-NO SUBTITLES
-NO UI
-NO RANDOM OBJECTS
+SCENES:
+{story}
+
+NEGATIVE: no text, no UI, no distortion
 """
 
-def build_scene(style, duration):
-    if duration == "8s":
-        return """SCENE (0–8s)
+# ================= UI =================
 
-0–3s (HOOK)
-Camera: close-up
-Dialogue: “Ủa… cái này là gì vậy?”
+tab1, tab2, tab3 = st.tabs(["🎬 Generate", "📊 Dashboard", "🔥 Trend"])
 
-3–6s (REVEAL)
-Camera: macro slow
-Dialogue: “Ủa có sẵn hết dây luôn hả?!”
+# ===== TAB 1 GENERATE =====
+with tab1:
 
-6–8s (CTA)
-Camera: plug phone
-Dialogue: “Thôi xong… khỏi mang dây luôn.”
-"""
+    st.subheader("🎯 Generate Video Ideas")
+
+    if st.button("🚀 Generate 5 Hooks (A/B test)"):
+
+        hooks = generate_hooks()
+
+        for i, hook in enumerate(hooks):
+
+            st.markdown(f"### 🎬 Video {i+1}")
+            story = build_story(hook)
+
+            st.write("Storyboard:")
+            for t,a,d in story:
+                st.write(f"{t} | {a} | {d}")
+
+            st.code(build_prompt(story))
+
+# ===== TAB 2 DASHBOARD =====
+with tab2:
+
+    st.subheader("📊 Tracking")
+
+    data = get_data()
+
+    if data:
+        df = pd.DataFrame(data)
+        st.dataframe(df)
+
+        st.subheader("🏆 Best Hooks")
+        best = df.groupby("hook")["views"].mean().sort_values(ascending=False)
+        st.bar_chart(best)
+
     else:
-        return """SCENE 1 (0–8s)
+        st.info("Chưa có dữ liệu")
 
-HOOK:
-“Ủa cái này là gì vậy?”
+    st.subheader("➕ Thêm dữ liệu video")
 
-REVEAL:
-“Ủa nó tích hợp hết luôn hả?!”
+    video_id = st.text_input("Video ID")
+    hook = st.text_input("Hook")
+    views = st.number_input("Views", 0)
 
-SCENE 2 (8–16s)
+    if st.button("💾 Save"):
+        save_result(video_id, hook, views)
+        st.success("Saved!")
 
-USE CASE:
-“Đi đâu cũng không cần mang dây nữa.”
+# ===== TAB 3 TREND =====
+with tab3:
 
-CTA:
-“Mua cái này tiện thiệt.”
-"""
+    st.subheader("🔥 Update Trend Hooks")
 
-def build_image_prompt():
-    return """IMAGE PROMPT:
-Ultra realistic product shot, soft lighting, clean desk, macro detail, 9:16 vertical, TikTok style, no text
-"""
+    st.write("👉 Paste hook từ TikTok Creative Center")
 
-def build_negative():
-    return """NEGATIVE PROMPT:
-blurry, extra fingers, wrong cable, different face, distorted product, text overlay
-"""
+    new_hook = st.text_input("Hook mới")
 
-# ======================
-# OUTPUT
-# ======================
+    if st.button("➕ Add Hook"):
+        data = load_json(TREND_FILE, [])
+        data.append(new_hook)
+        save_json(TREND_FILE, data)
+        st.success("Added!")
 
-if generate:
-    st.subheader("📜 PROMPT OUTPUT")
-
-    master = build_master_lock()
-    scene = build_scene(style, duration)
-    image = build_image_prompt()
-    negative = build_negative()
-
-    full_prompt = f"""{master}
-
-{scene}
-
-{image}
-
-{negative}
-"""
-
-    st.code(full_prompt, language="text")
+    st.write("Current hooks:")
+    st.json(load_json(TREND_FILE, default_hooks))
