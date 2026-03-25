@@ -1,103 +1,174 @@
+import streamlit as st
 import base64
 import requests
-
-OPENAI_API_KEY = "YOUR_API_KEY"
+import random
 
 # =========================
-# IMAGE → BASE64
+# CONFIG
+# =========================
+OPENAI_API_KEY = "YOUR_API_KEY"
+API_URL = "https://api.openai.com/v1/chat/completions"
+
+st.set_page_config(page_title="Affiliate AI Generator PRO", layout="wide")
+
+st.title("🚀 Affiliate AI Generator PRO (FINAL BOSS)")
+st.write("Upload ảnh → AI tự hiểu sản phẩm → tạo kịch bản viral TikTok")
+
+# =========================
+# INPUT
+# =========================
+col1, col2 = st.columns(2)
+
+with col1:
+    character_img = st.file_uploader("📸 Ảnh nhân vật", type=["png","jpg","jpeg"])
+
+with col2:
+    product_img = st.file_uploader("📦 Ảnh sản phẩm", type=["png","jpg","jpeg"])
+
+num_scripts = st.slider("🎬 Số lượng kịch bản", 1, 20, 5)
+
+duration = st.selectbox("⏱ Độ dài video", [
+    "8s","16s","24s","32s","40s","48s","56s"
+])
+
+style = st.selectbox("🎯 Phong cách", [
+    "Auto (AI chọn)",
+    "Bán hàng mạnh",
+    "Review chân thật",
+    "Hài hước",
+    "Cinematic ads"
+])
+
+generate = st.button("🔥 Generate")
+
+# =========================
+# UTIL
 # =========================
 def encode_image(file):
     return base64.b64encode(file.read()).decode("utf-8")
+
+def call_api(messages, max_tokens=1000):
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "model": "gpt-4.1",
+        "messages": messages,
+        "max_tokens": max_tokens
+    }
+
+    res = requests.post(API_URL, headers=headers, json=data)
+    return res.json()["choices"][0]["message"]["content"]
 
 # =========================
 # STEP 1: ANALYZE PRODUCT
 # =========================
 def analyze_product(image_base64):
 
-    url = "https://api.openai.com/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
     prompt = """
-Bạn là chuyên gia TikTok Affiliate 10 năm kinh nghiệm.
+Bạn là chuyên gia TikTok Affiliate 2026.
 
-Phân tích sản phẩm từ ảnh và trả về:
+Phân tích sản phẩm từ ảnh:
 
-1. Tên sản phẩm
-2. Loại sản phẩm
-3. Công dụng chính
-4. 5 điểm bán hàng (USP)
-5. Khách hàng mục tiêu
-6. Pain point khách hàng
-7. Tình huống sử dụng
-8. Format TikTok phù hợp nhất (3 format)
+Trả về:
+- Tên sản phẩm
+- Loại sản phẩm
+- Công dụng
+- 5 USP bán hàng
+- Khách hàng mục tiêu
+- Pain point
+- Tình huống sử dụng
+- 5 góc nội dung viral TikTok
+- 3 format phù hợp nhất
 
-Viết ngắn gọn, đúng insight, bán được hàng.
+Viết NGẮN – CHÍNH XÁC – BÁN ĐƯỢC HÀNG.
 """
 
-    data = {
-        "model": "gpt-4.1",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{image_base64}"
-                        }
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 800
-    }
-
-    res = requests.post(url, headers=headers, json=data)
-    return res.json()["choices"][0]["message"]["content"]
+    return call_api([{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+        ]
+    }], 800)
 
 # =========================
 # STEP 2: GENERATE SCRIPT
 # =========================
-def generate_script_with_ai(product_analysis, duration):
+def generate_script(analysis, duration, style, history):
 
     prompt = f"""
-Bạn là top TikTok creator 2026.
+Bạn là top TikTok creator affiliate.
 
-Dựa vào thông tin sản phẩm sau:
+Thông tin sản phẩm:
+{analysis}
 
-{product_analysis}
-
-Hãy tạo 1 kịch bản video {duration}:
+Yêu cầu:
+- Viết kịch bản {duration}
 - Hook cực mạnh 3s đầu
-- Nội dung tự nhiên, giống người thật
-- Không generic
+- Giọng tự nhiên (nữ, miền Nam)
 - Đúng pain point
-- Có CTA nhẹ
+- Không chung chung
+- Không giống các kịch bản trước: {history}
 
-Đảm bảo KHÔNG trùng format với các kịch bản khác.
+Style: {style}
 
-Thêm MASTER LOCK để:
-- giữ nhân vật không đổi
-- giữ sản phẩm không biến dạng
+Format:
+- Scene rõ ràng
+- Có CTA
+
+THÊM MASTER LOCK:
+
+Character MUST giữ nguyên như ảnh
+Product MUST giữ nguyên như ảnh
+
+NO:
+- text overlay
+- subtitles
+- UI
 """
 
-    url = "https://api.openai.com/v1/chat/completions"
+    return call_api([{"role": "user", "content": prompt}], 1200)
 
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
-    }
+# =========================
+# MAIN
+# =========================
+if generate:
 
-    data = {
-        "model": "gpt-4.1",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1000
-    }
+    if not product_img or not character_img:
+        st.warning("❗ Vui lòng upload đủ ảnh")
+    else:
 
-    res = requests.post(url, headers=headers, json=data)
-    return res.json()["choices"][0]["message"]["content"]
+        # Encode image
+        product_base64 = encode_image(product_img)
+
+        # STEP 1: ANALYSIS
+        with st.spinner("🧠 AI đang phân tích sản phẩm..."):
+            analysis = analyze_product(product_base64)
+
+        st.subheader("📊 Phân tích sản phẩm")
+        st.write(analysis)
+
+        # STEP 2: GENERATE SCRIPTS
+        st.subheader("🎬 Kịch bản")
+
+        history = []
+
+        for i in range(num_scripts):
+
+            with st.spinner(f"Đang tạo kịch bản {i+1}..."):
+
+                script = generate_script(
+                    analysis,
+                    duration,
+                    style,
+                    history
+                )
+
+                history.append(script[:200])
+
+                st.markdown(f"---")
+                st.subheader(f"🎬 Script {i+1}")
+                st.code(script)
