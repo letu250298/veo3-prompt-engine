@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # LOAD ENV
 # =========================
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = "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"
 
 if not OPENAI_API_KEY:
     st.error("❌ Missing OPENAI_API_KEY")
