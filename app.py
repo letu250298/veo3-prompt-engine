@@ -15,7 +15,7 @@ if not OPENAI_API_KEY:
     st.error("❌ Missing OPENAI_API_KEY")
     st.stop()
 
-API_URL = "https://api.openai.com/v1/chat/completions"
+API_URL = "https://api.openai.com/v1/responses"
 
 st.set_page_config(page_title="Affiliate AI Generator PRO", layout="wide")
 
