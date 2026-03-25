@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # LOAD ENV
 # =========================
 load_dotenv()
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY =  os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
     st.error("❌ Missing OPENAI_API_KEY")
@@ -43,58 +43,48 @@ generate = st.button("🔥 Generate")
 def encode_image(file):
     return base64.b64encode(file.read()).decode("utf-8")
 
-def call_api(messages, retries=3):
+def call_api(messages):
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    for attempt in range(retries):
-        try:
-            res = requests.post(API_URL, headers=headers, json={
-                "model": "gpt-4o",
-                "messages": messages,
-                "max_tokens": 1000
-            })
+    res = requests.post(
+        "https://api.openai.com/v1/responses",
+        headers=headers,
+        json={
+            "model": "gpt-4.1-mini",
+            "input": messages
+        }
+    )
 
-            if res.status_code != 200:
-                error_msg = res.text
+    data = res.json()
 
-                if res.status_code == 429:
-                    time.sleep(2)
-                    continue
+    if "error" in data:
+        return f"❌ {data['error']['message']}"
 
-                return f"❌ API Error {res.status_code}: {error_msg}"
-
-            data = res.json()
-
-            if "error" in data:
-                return f"❌ API Error: {data['error']['message']}"
-
-            if "choices" not in data:
-                return f"❌ Unexpected response: {data}"
-
-            return data["choices"][0]["message"]["content"]
-
-        except Exception as e:
-            if attempt == retries - 1:
-                return f"❌ Exception: {str(e)}"
-            time.sleep(1)
+    return data["output"][0]["content"][0]["text"]
 
 # =========================
 # AI FUNCTIONS
 # =========================
-def analyze_product(img_base64):
-    prompt = "Phân tích sản phẩm từ ảnh: USP, khách hàng, pain point, format TikTok."
+def analyze_product(image_base64):
 
-    return call_api([{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}}
-        ]
-    }])
+    prompt = "Phân tích sản phẩm từ ảnh, đưa ra USP, khách hàng, pain point"
 
+    return call_api([
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {
+                    "type": "input_image",
+                    "image_url": f"data:image/jpeg;base64,{image_base64}"
+                }
+            ]
+        }
+    ])
 def generate_script(analysis, duration, history):
     prompt = f"""
 Dựa vào:
