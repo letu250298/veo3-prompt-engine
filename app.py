@@ -44,21 +44,16 @@ def encode_image(file):
     return base64.b64encode(file.read()).decode("utf-8")
 
 def call_api(input_data, retries=3):
-    ...
-    data = res.json()
 
-    if "error" in data:
-        return f"❌ {data['error']['message']}"
-
-    try:
-        return str(data["output"][0]["content"][0]["text"])
-    except:
-        return f"❌ Unexpected response: {data}"
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
     for attempt in range(retries):
         try:
             res = requests.post(
-                API_URL,
+                "https://api.openai.com/v1/responses",
                 headers=headers,
                 json={
                     "model": "gpt-4.1-mini",
@@ -66,6 +61,7 @@ def call_api(input_data, retries=3):
                 }
             )
 
+            # Nếu request fail
             if res.status_code != 200:
                 if res.status_code == 429:
                     time.sleep(2)
@@ -77,12 +73,17 @@ def call_api(input_data, retries=3):
             if "error" in data:
                 return f"❌ {data['error']['message']}"
 
-            return data["output"][0]["content"][0]["text"]
+            try:
+                return data["output"][0]["content"][0]["text"]
+            except:
+                return f"❌ Unexpected response: {data}"
 
         except Exception as e:
             if attempt == retries - 1:
                 return f"❌ Exception: {str(e)}"
             time.sleep(1)
+
+    return "❌ Failed after retries"
 
 # =========================
 # AI FUNCTIONS
