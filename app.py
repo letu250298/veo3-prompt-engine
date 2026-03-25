@@ -89,24 +89,26 @@ def call_api(input_data, retries=3):
 # AI FUNCTIONS
 # =========================
 def analyze_product(image_base64):
+    try:
+        prompt = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "Phân tích sản phẩm từ ảnh"},
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{image_base64}"
+                    }
+                ]
+            }
+        ]
 
-    prompt = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": "Phân tích sản phẩm từ ảnh: tên, công dụng, USP, khách hàng, pain point, 5 angle viral TikTok"
-                },
-                {
-                    "type": "input_image",
-                    "image_url": f"data:image/jpeg;base64,{image_base64}"
-                }
-            ]
-        }
-    ]
+        result = call_api(prompt)
 
-    return call_api(prompt)
+        return result if result else "❌ No response"
+
+    except Exception as e:
+        return f"❌ analyze error: {str(e)}"
 
 def generate_script(analysis, duration, history):
 
