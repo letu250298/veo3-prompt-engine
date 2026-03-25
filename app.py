@@ -2,65 +2,73 @@ import streamlit as st
 import random, json, os
 from datetime import datetime
 import pandas as pd
+from openai import OpenAI
 
-# ================= CONFIG =================
+client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY",""))
+
+st.set_page_config(page_title="VEO3 AUTO SCALE SYSTEM", layout="wide")
+st.title("🔥 VEO3 AUTO SCALE SYSTEM")
+
 DATA_FILE = "data.json"
 TREND_FILE = "trends.json"
 
-st.set_page_config(page_title="VEO3 MONEY SYSTEM", layout="wide")
-st.title("🔥 VEO3 MONEY SYSTEM (Trend + AB Test + Dashboard)")
-
-# ================= UTIL =================
+# ================= FILE =================
 def load_json(path, default):
     if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path,"r",encoding="utf-8") as f:
             return json.load(f)
     return default
 
 def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with open(path,"w",encoding="utf-8") as f:
+        json.dump(data,f,ensure_ascii=False,indent=2)
 
-# ================= TREND ENGINE =================
-default_hooks = [
-    "Ủa… sao giờ ai cũng xài cái này vậy?",
-    "Lướt TikTok thấy cái này hoài luôn",
-    "Không nghĩ là nó tiện vậy luôn á",
-    "Ai cũng mua cái này luôn á trời",
-    "Review thật, không PR nha 😭"
-]
+# ================= HOOK ENGINE =================
+def ai_hook():
+    patterns = [
+        "Ủa cái này {insight} vậy luôn á?",
+        "Không nghĩ nó lại {insight}",
+        "Ai cũng đang xài cái này luôn",
+        "Lướt TikTok thấy cái này hoài luôn",
+        "Dùng thử mà {emotion} luôn"
+    ]
+    return random.choice(patterns).format(
+        insight=random.choice(["tiện","xịn","đáng tiền"]),
+        emotion=random.choice(["nghiện","mê","bất ngờ"])
+    )
 
-def get_trend_hooks():
-    data = load_json(TREND_FILE, [])
-    return data if data else default_hooks
-
-# ================= TRACKING =================
-def save_result(video_id, hook, views):
+def get_best_hook():
     data = load_json(DATA_FILE, [])
-    data.append({
-        "video_id": video_id,
-        "hook": hook,
-        "views": views,
-        "date": str(datetime.now())
-    })
-    save_json(DATA_FILE, data)
+    if data:
+        best = sorted(data, key=lambda x: x["views"], reverse=True)
+        return best[0]["hook"]
+    return None
 
-def get_data():
-    return load_json(DATA_FILE, [])
+def hook_score(h):
+    score = 0
+    if "Ủa" in h: score += 2
+    if "ai cũng" in h: score += 3
+    if "luôn" in h: score += 2
+    return score
 
-# ================= AB TEST =================
-def generate_hooks(n=5):
-    hooks = get_trend_hooks()
-    return random.sample(hooks, min(n, len(hooks)))
+def get_smart_hook():
+    hooks = load_json(TREND_FILE, [])
+    best = get_best_hook()
 
-# ================= STORYBOARD =================
+    pool = hooks + [ai_hook()]
+    if best: pool.append(best)
+
+    pool = sorted(pool, key=lambda x: hook_score(x), reverse=True)
+    return pool[0]
+
+# ================= STORY =================
 def build_story(hook):
     return [
-        ("0-3s", "Close-up face", hook),
-        ("3-6s", "Macro product", "Ủa có sẵn hết luôn hả?!"),
-        ("6-10s", "Use product", "Tiện ghê luôn á"),
-        ("10-15s", "Lifestyle", "Đi đâu cũng không cần mang dây"),
-        ("15-20s", "CTA", "Mua cái này là đúng rồi")
+        ("0-3s","Close-up face",hook),
+        ("3-6s","Macro product","Ủa có sẵn hết luôn hả?!"),
+        ("6-10s","Use product","Tiện ghê luôn á"),
+        ("10-15s","Lifestyle","Đi đâu cũng không cần mang dây"),
+        ("15-20s","CTA","Mua cái này là đúng rồi")
     ]
 
 # ================= PROMPT =================
@@ -71,78 +79,111 @@ IDENTITY LOCK
 PRODUCT LOCK
 CONTINUITY LOCK
 
-SCENES:
+CAMERA + ACTION:
 {story}
 
-NEGATIVE: no text, no UI, no distortion
+DIALOGUE:
+Auto from storyboard
+
+NEGATIVE:
+No text overlay, no UI, no distortion
 """
 
-# ================= UI =================
+# ================= IMAGE =================
+def generate_image(prompt):
+    if not client.api_key:
+        return None
+    result = client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt,
+        size="1024x1792"
+    )
+    return result.data[0].url
 
-tab1, tab2, tab3 = st.tabs(["🎬 Generate", "📊 Dashboard", "🔥 Trend"])
+# ================= CAPTION =================
+def caption():
+    return random.choice([
+        "Mua vì tò mò mà giờ nghiện luôn 😭",
+        "Ai hay quên đồ chắc chắn cần cái này",
+        "Không nghĩ nó tiện tới vậy luôn á"
+    ])
 
-# ===== TAB 1 GENERATE =====
-with tab1:
+def hashtag():
+    return " ".join(random.sample(
+        ["#tiktokshop","#viral","#review","#fyp","#xuhuong","#gadgets"],5))
 
-    st.subheader("🎯 Generate Video Ideas")
+def post_time():
+    return "10h30-12h | 19h-22h" if datetime.now().weekday()>=5 else "11h30-13h | 19h-21h30"
 
-    if st.button("🚀 Generate 5 Hooks (A/B test)"):
+# ================= INPUT =================
+st.sidebar.header("INPUT")
 
-        hooks = generate_hooks()
+variants = st.sidebar.slider("A/B test",1,5,3)
+scale_mode = st.sidebar.checkbox("🔥 AUTO SCALE MODE")
 
-        for i, hook in enumerate(hooks):
+# ================= GENERATE =================
+if st.sidebar.button("🚀 GENERATE"):
 
-            st.markdown(f"### 🎬 Video {i+1}")
-            story = build_story(hook)
+    best_hook = get_best_hook()
 
-            st.write("Storyboard:")
-            for t,a,d in story:
-                st.write(f"{t} | {a} | {d}")
+    if best_hook:
+        st.success(f"🔥 Hook WIN: {best_hook}")
 
-            st.code(build_prompt(story))
+    for i in range(variants):
 
-# ===== TAB 2 DASHBOARD =====
-with tab2:
+        st.markdown(f"## 🎬 VIDEO {i+1}")
 
-    st.subheader("📊 Tracking")
+        if scale_mode and best_hook:
+            hook = best_hook
+        else:
+            hook = get_smart_hook()
 
-    data = get_data()
+        story = build_story(hook)
 
-    if data:
-        df = pd.DataFrame(data)
-        st.dataframe(df)
+        st.markdown("### 🎬 STORYBOARD")
+        for t,a,d in story:
+            st.write(f"{t} | {a} | {d}")
 
-        st.subheader("🏆 Best Hooks")
-        best = df.groupby("hook")["views"].mean().sort_values(ascending=False)
-        st.bar_chart(best)
+        st.markdown("### 📜 PROMPT")
+        st.code(build_prompt(story))
 
-    else:
-        st.info("Chưa có dữ liệu")
+        st.markdown("### 🖼 IMAGE")
+        for idx,(t,a,_) in enumerate(story):
+            if st.button(f"Gen {i}-{idx}"):
+                img = generate_image(a)
+                if img:
+                    st.image(img)
 
-    st.subheader("➕ Thêm dữ liệu video")
+        st.markdown("### 💰 TIKTOK")
+        st.code(f"""
+Caption:
+{caption()}
 
-    video_id = st.text_input("Video ID")
-    hook = st.text_input("Hook")
-    views = st.number_input("Views", 0)
+Hashtag:
+{hashtag()}
 
-    if st.button("💾 Save"):
-        save_result(video_id, hook, views)
-        st.success("Saved!")
+Time:
+{post_time()}
+""")
 
-# ===== TAB 3 TREND =====
-with tab3:
+# ================= TRACK =================
+st.markdown("---")
+st.markdown("## 📊 TRACK")
 
-    st.subheader("🔥 Update Trend Hooks")
+vid = st.text_input("Video ID")
+hook_used = st.text_input("Hook")
+views = st.number_input("Views",0)
 
-    st.write("👉 Paste hook từ TikTok Creative Center")
+if st.button("SAVE"):
+    data = load_json(DATA_FILE, [])
+    data.append({"video_id":vid,"hook":hook_used,"views":views})
+    save_json(DATA_FILE,data)
+    st.success("Saved!")
 
-    new_hook = st.text_input("Hook mới")
+# ================= DASHBOARD =================
+data = load_json(DATA_FILE, [])
 
-    if st.button("➕ Add Hook"):
-        data = load_json(TREND_FILE, [])
-        data.append(new_hook)
-        save_json(TREND_FILE, data)
-        st.success("Added!")
-
-    st.write("Current hooks:")
-    st.json(load_json(TREND_FILE, default_hooks))
+if data:
+    df = pd.DataFrame(data)
+    st.dataframe(df)
+    st.bar_chart(df.groupby("hook")["views"].mean())
