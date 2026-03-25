@@ -1,135 +1,138 @@
 import streamlit as st
-import random, json, os, base64
+import random
 from datetime import datetime
-import pandas as pd
-import openai
 
-openai.api_key = st.secrets.get("OPENAI_API_KEY","")
+st.set_page_config(page_title="TikTok Affiliate Script Generator PRO", layout="wide")
 
-DATA_FILE = "data.json"
+st.title("🚀 TikTok Affiliate Script Generator PRO (Veo 3 Ready)")
+st.write("Tạo hàng loạt kịch bản affiliate chuẩn viral + khóa nhân vật & sản phẩm")
 
-st.set_page_config(layout="wide")
-st.title("💰 FINAL BOSS SELLING SYSTEM")
+# =========================
+# INPUT
+# =========================
 
-# ================= LOAD =================
-def load_json(path, default):
-    if os.path.exists(path):
-        with open(path,"r") as f:
-            return json.load(f)
-    return default
+col1, col2 = st.columns(2)
 
-def save_json(path, data):
-    with open(path,"w") as f:
-        json.dump(data,f)
+with col1:
+    character_img = st.file_uploader("Upload ảnh nhân vật", type=["png","jpg","jpeg"])
+with col2:
+    product_img = st.file_uploader("Upload ảnh sản phẩm", type=["png","jpg","jpeg"])
 
-# ================= INPUT =================
-st.sidebar.title("INPUT")
+num_scripts = st.slider("Số lượng kịch bản", 1, 20, 5)
 
-product = st.sidebar.file_uploader("Product", type=["png","jpg"])
-customer = st.sidebar.selectbox("Customer",[
-    "Sinh viên",
-    "Dân văn phòng",
-    "Người hay đi du lịch",
-    "Người lười"
+duration = st.selectbox("Độ dài video", [
+    "8s","16s","24s","32s","40s","48s","56s"
 ])
 
-variants = st.sidebar.slider("Videos",1,5,3)
-scale = st.sidebar.checkbox("AUTO SCALE")
+format_option = st.selectbox("Chọn format", [
+    "Auto (AI chọn)",
+    "Review chân thật",
+    "Unbox",
+    "POV",
+    "So sánh",
+    "Story bán hàng",
+    "Bắt trend TikTok",
+    "Problem - Solution"
+])
 
-# ================= PRODUCT AI =================
-def analyze_product(img):
-    if not img or not openai.api_key:
-        return {
-            "feature":"đa năng",
-            "benefit":"tiện lợi",
-            "pain":"hay quên đồ"
-        }
+product_desc = st.text_area("Mô tả sản phẩm (key selling points)", "")
 
-    base64_img = base64.b64encode(img.read()).decode()
+generate = st.button("🔥 Generate Scripts")
 
-    res = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role":"user",
-                "content":[
-                    {"type":"text","text":"Phân tích sản phẩm: feature, benefit, pain point (JSON)"},
-                    {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{base64_img}"}}
-                ]
-            }
-        ]
-    )
+# =========================
+# FORMAT LIBRARY (TREND 2026)
+# =========================
 
-    try:
-        return json.loads(res.choices[0].message.content)
-    except:
-        return {"feature":"đa năng","benefit":"tiện","pain":"quên đồ"}
+formats = [
+    "hook tò mò",
+    "review thật",
+    "mua vì tò mò",
+    "ai cũng đang dùng",
+    "so sánh trước sau",
+    "pov tình huống",
+    "bị hiểu lầm",
+    "test thử",
+    "reaction",
+    "giải quyết vấn đề"
+]
 
-# ================= HOOK =================
-def hook(insight, customer):
-    pain = insight["pain"]
-    return random.choice([
-        f"{customer} mà hay bị {pain} thì coi cái này",
-        f"Mình từng bị {pain} cho tới khi dùng cái này",
-        f"Ai bị {pain} chắc hiểu cảm giác này"
-    ])
+# =========================
+# GENERATOR
+# =========================
 
-# ================= STORY =================
-def story(h,insight):
-    return [
-        ("0-3s","Hook",h),
-        ("3-6s","Pain",f"Trước giờ mình bị {insight['pain']}"),
-        ("6-10s","Feature",f"Cái này có {insight['feature']}"),
-        ("10-15s","Benefit",f"{insight['benefit']} cực kỳ"),
-        ("15-20s","CTA","Mua liền luôn")
+def generate_script(format_type, duration):
+    
+    hook_list = [
+        "Ủa… sao ai cũng xài cái này vậy?",
+        "Tui tưởng cái này vô dụng luôn á",
+        "Mua vì tò mò… ai ngờ dính luôn",
+        "Cái này mà không biết là phí luôn",
+        "Ủa cái này là cái gì vậy trời?"
     ]
+    
+    hook = random.choice(hook_list)
+    
+    script = f"""
+MASTER LOCK:
+Mode: Image-to-Video using provided reference images only.
+Character MUST remain identical to reference image.
+Product MUST remain identical to reference product.
+NO regeneration, NO redesign.
 
-# ================= GENERATE =================
-if st.button("🚀 GENERATE MONEY CONTENT"):
+Audio:
+Vietnamese female voice, natural, miền Nam, 25 tuổi.
+Lip-sync accurate.
 
-    insight = analyze_product(product)
+Format:
+Vertical 9:16 TikTok
 
-    st.success(f"🧠 Insight: {insight}")
+SCENE (0–{duration}):
 
-    for i in range(variants):
+HOOK:
+"{hook}"
 
-        st.markdown(f"## 🎬 VIDEO {i+1}")
+BODY:
+Trải nghiệm sản phẩm theo format: {format_type}
 
-        h = hook(insight, customer)
-        s = story(h, insight)
+CTA:
+"Ai đang cần thì nên thử cái này."
+"""
+    
+    return script
 
-        for t,a,d in s:
-            st.write(f"{t} | {d}")
+# =========================
+# MAIN LOGIC
+# =========================
 
-        st.code(f"""
-MASTER LOCK
-IDENTITY LOCK
-PRODUCT LOCK
+if generate:
 
-SCENES:
-{s}
+    if not product_desc:
+        st.warning("Vui lòng nhập mô tả sản phẩm")
+    else:
+        st.success("Đang tạo kịch bản...")
 
-NEGATIVE:
-no text
-""")
+        used_formats = []
+        results = []
 
-# ================= TRACK =================
-st.markdown("---")
-st.markdown("## 📊 TRACK")
+        for i in range(num_scripts):
+            
+            if format_option == "Auto (AI chọn)":
+                available_formats = list(set(formats) - set(used_formats))
+                if not available_formats:
+                    available_formats = formats
+                chosen_format = random.choice(available_formats)
+                used_formats.append(chosen_format)
+            else:
+                chosen_format = format_option
 
-vid = st.text_input("Video ID")
-hook_used = st.text_input("Hook")
-views = st.number_input("Views",0)
+            script = generate_script(chosen_format, duration)
+            results.append((i+1, chosen_format, script))
 
-if st.button("SAVE"):
-    data = load_json(DATA_FILE, [])
-    data.append({"hook":hook_used,"views":views})
-    save_json(DATA_FILE,data)
-    st.success("Saved")
+        # =========================
+        # OUTPUT
+        # =========================
 
-# ================= DASHBOARD =================
-data = load_json(DATA_FILE, [])
-
-if data:
-    df = pd.DataFrame(data)
-    st.bar_chart(df.groupby("hook")["views"].mean())
+        for idx, fmt, sc in results:
+            st.markdown(f"---")
+            st.subheader(f"🎬 Script {idx} - Format: {fmt}")
+            st.code(sc)
