@@ -2,12 +2,12 @@ import streamlit as st
 import random, json, os
 from datetime import datetime
 import pandas as pd
-from openai import OpenAI
+import openai
 
-client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY",""))
+openai.api_key = st.secrets.get("OPENAI_API_KEY","")
 
-st.set_page_config(page_title="VEO3 AUTO SCALE SYSTEM", layout="wide")
-st.title("🔥 VEO3 AUTO SCALE SYSTEM")
+st.set_page_config(page_title="VEO3 ULTRA SYSTEM", layout="wide")
+st.title("🔥 VEO3 ULTRA SYSTEM (QUALITY + SCALE + AI)")
 
 DATA_FILE = "data.json"
 TREND_FILE = "trends.json"
@@ -33,7 +33,7 @@ def ai_hook():
         "Dùng thử mà {emotion} luôn"
     ]
     return random.choice(patterns).format(
-        insight=random.choice(["tiện","xịn","đáng tiền"]),
+        insight=random.choice(["tiện","xịn","đáng tiền","nhỏ mà có võ"]),
         emotion=random.choice(["nghiện","mê","bất ngờ"])
     )
 
@@ -61,65 +61,103 @@ def get_smart_hook():
     pool = sorted(pool, key=lambda x: hook_score(x), reverse=True)
     return pool[0]
 
-# ================= STORY =================
-def build_story(hook):
+# ================= STORYBOARD =================
+def build_story(hook, duration):
+
+    if duration == "8s":
+        return [
+            ("0-2s","Close-up face, confused expression",hook),
+            ("2-5s","Macro product, cable reveal slowly","Ủa có sẵn hết luôn hả?!"),
+            ("5-8s","Plug phone, screen lights up","Thôi xong khỏi mang dây luôn.")
+        ]
+
     return [
-        ("0-3s","Close-up face",hook),
-        ("3-6s","Macro product","Ủa có sẵn hết luôn hả?!"),
+        ("0-3s","Close-up face reaction",hook),
+        ("3-6s","Macro product detail","Ủa nó tích hợp hết luôn hả?!"),
         ("6-10s","Use product","Tiện ghê luôn á"),
-        ("10-15s","Lifestyle","Đi đâu cũng không cần mang dây"),
-        ("15-20s","CTA","Mua cái này là đúng rồi")
+        ("10-15s","Lifestyle usage","Đi đâu cũng không cần mang dây"),
+        ("15-20s","CTA shot","Mua cái này là đúng rồi")
     ]
 
 # ================= PROMPT =================
 def build_prompt(story):
+
     return f"""
-MASTER LOCK
-IDENTITY LOCK
-PRODUCT LOCK
-CONTINUITY LOCK
+MASTER LOCK:
+Mode: Image-to-Video using provided reference images only.
+
+IDENTITY LOCK:
+Character must remain identical to reference image.
+Do NOT change face, hair, body.
+
+PRODUCT LOCK:
+Product must remain identical.
+No redesign, no color change.
+
+CONTINUITY LOCK:
+Maintain same character, product, lighting.
 
 CAMERA + ACTION:
 {story}
 
 DIALOGUE:
-Auto from storyboard
+Use exact dialogue from storyboard.
 
 NEGATIVE:
-No text overlay, no UI, no distortion
+NO TEXT OVERLAY
+NO SUBTITLES
+NO UI
+NO EXTRA OBJECTS
+NO DISTORTION
 """
 
 # ================= IMAGE =================
 def generate_image(prompt):
-    if not client.api_key:
+    if not openai.api_key:
         return None
-    result = client.images.generate(
+
+    response = openai.images.generate(
         model="gpt-image-1",
         prompt=prompt,
         size="1024x1792"
     )
-    return result.data[0].url
+
+    return response.data[0].url
+
+def build_image_prompt(action):
+    return f"""
+Ultra realistic product shot,
+{action},
+clean background,
+soft lighting,
+9:16 vertical,
+TikTok style,
+no text,
+sharp focus
+"""
 
 # ================= CAPTION =================
 def caption():
     return random.choice([
         "Mua vì tò mò mà giờ nghiện luôn 😭",
         "Ai hay quên đồ chắc chắn cần cái này",
-        "Không nghĩ nó tiện tới vậy luôn á"
+        "Không nghĩ nó tiện tới vậy luôn á",
+        "Đi đâu cũng mang cái này là đủ"
     ])
 
 def hashtag():
     return " ".join(random.sample(
-        ["#tiktokshop","#viral","#review","#fyp","#xuhuong","#gadgets"],5))
+        ["#tiktokshop","#viral","#review","#fyp","#xuhuong","#gadgets","#musthave"],5))
 
 def post_time():
     return "10h30-12h | 19h-22h" if datetime.now().weekday()>=5 else "11h30-13h | 19h-21h30"
 
-# ================= INPUT =================
-st.sidebar.header("INPUT")
+# ================= UI =================
+st.sidebar.header("CONTROL")
 
+duration = st.sidebar.selectbox("Duration",["8s","16s","24s"])
 variants = st.sidebar.slider("A/B test",1,5,3)
-scale_mode = st.sidebar.checkbox("🔥 AUTO SCALE MODE")
+scale_mode = st.sidebar.checkbox("🔥 AUTO SCALE (reuse hook win)")
 
 # ================= GENERATE =================
 if st.sidebar.button("🚀 GENERATE"):
@@ -138,23 +176,29 @@ if st.sidebar.button("🚀 GENERATE"):
         else:
             hook = get_smart_hook()
 
-        story = build_story(hook)
+        story = build_story(hook, duration)
 
+        # STORYBOARD
         st.markdown("### 🎬 STORYBOARD")
         for t,a,d in story:
             st.write(f"{t} | {a} | {d}")
 
-        st.markdown("### 📜 PROMPT")
-        st.code(build_prompt(story))
+        # PROMPT
+        st.markdown("### 📜 VEO PROMPT")
+        prompt = build_prompt(story)
+        st.code(prompt)
 
-        st.markdown("### 🖼 IMAGE")
+        # IMAGE
+        st.markdown("### 🖼 SCENE IMAGES")
         for idx,(t,a,_) in enumerate(story):
-            if st.button(f"Gen {i}-{idx}"):
-                img = generate_image(a)
+            if st.button(f"Generate {i}-{idx}"):
+                img_prompt = build_image_prompt(a)
+                img = generate_image(img_prompt)
                 if img:
                     st.image(img)
 
-        st.markdown("### 💰 TIKTOK")
+        # TIKTOK
+        st.markdown("### 💰 CONTENT")
         st.code(f"""
 Caption:
 {caption()}
@@ -162,19 +206,19 @@ Caption:
 Hashtag:
 {hashtag()}
 
-Time:
+Best time:
 {post_time()}
 """)
 
 # ================= TRACK =================
 st.markdown("---")
-st.markdown("## 📊 TRACK")
+st.markdown("## 📊 TRACK VIDEO")
 
 vid = st.text_input("Video ID")
-hook_used = st.text_input("Hook")
+hook_used = st.text_input("Hook used")
 views = st.number_input("Views",0)
 
-if st.button("SAVE"):
+if st.button("SAVE RESULT"):
     data = load_json(DATA_FILE, [])
     data.append({"video_id":vid,"hook":hook_used,"views":views})
     save_json(DATA_FILE,data)
@@ -187,3 +231,14 @@ if data:
     df = pd.DataFrame(data)
     st.dataframe(df)
     st.bar_chart(df.groupby("hook")["views"].mean())
+
+# ================= TREND =================
+st.markdown("## 🔥 UPDATE TREND")
+
+new_hook = st.text_input("New hook")
+
+if st.button("ADD HOOK"):
+    data = load_json(TREND_FILE, [])
+    data.append(new_hook)
+    save_json(TREND_FILE,data)
+    st.success("Added!")
