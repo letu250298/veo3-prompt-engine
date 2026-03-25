@@ -48,6 +48,7 @@ def encode_image(file):
     return base64.b64encode(file.read()).decode("utf-8")
 
 def call_api(messages, max_tokens=1000):
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
@@ -59,9 +60,27 @@ def call_api(messages, max_tokens=1000):
         "max_tokens": max_tokens
     }
 
-    res = requests.post(API_URL, headers=headers, json=data)
-    return res.json()["choices"][0]["message"]["content"]
+    try:
+        res = requests.post(API_URL, headers=headers, json=data)
 
+        # Debug raw response
+        if res.status_code != 200:
+            return f"❌ API Error {res.status_code}: {res.text}"
+
+        json_res = res.json()
+
+        # Nếu API trả về lỗi
+        if "error" in json_res:
+            return f"❌ API Error: {json_res['error']['message']}"
+
+        # Nếu thiếu choices
+        if "choices" not in json_res:
+            return f"❌ Unexpected response: {json_res}"
+
+        return json_res["choices"][0]["message"]["content"]
+
+    except Exception as e:
+        return f"❌ Exception: {str(e)}"
 # =========================
 # STEP 1: ANALYZE PRODUCT
 # =========================
